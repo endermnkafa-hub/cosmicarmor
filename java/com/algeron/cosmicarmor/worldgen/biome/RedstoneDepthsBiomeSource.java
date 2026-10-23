@@ -99,22 +99,36 @@ public class RedstoneDepthsBiomeSource extends BiomeSource {
         return this.delegate.getNoiseBiome(quartX, quartY, quartZ, sampler);
     }
 
-    public static final int PLACEMENT_SPACING = 32;
-    public static final int PLACEMENT_SEPARATION = 8;
+    public static final int PLACEMENT_SPACING = 64;
+    public static final int PLACEMENT_SEPARATION = 16;
     public static final int PLACEMENT_SALT = 1642893;
 
     /**
-     * Her dünyada tam olarak 1 adet Kızıltaş Derinlikleri merkezi deterministik olarak belirlenir.
-     * Bu merkez, StructurePlacement'in (0, 0) grid bölgesinde seçeceği aday chunk ile birebir aynıdır.
+     * Her dünyada tam olarak 1 adet Kızıltaş Derinlikleri merkezi deterministik ve nadir olarak belirlenir.
+     * Orijinden 2400-4000 blok uzakta rastgele bir açıda tek bir bölüm seçilir.
+     * Bu merkez, StructurePlacement'in o bölümdeki aday chunk'ı ile birebir aynıdır.
      */
     public static net.minecraft.world.level.ChunkPos getUniqueCenterChunk(long seed) {
         net.minecraft.world.level.levelgen.WorldgenRandom r = new net.minecraft.world.level.levelgen.WorldgenRandom(
                 new net.minecraft.world.level.levelgen.LegacyRandomSource(0L)
         );
         r.setLargeFeatureWithSalt(seed, 0, 0, PLACEMENT_SALT);
-        int k = PLACEMENT_SPACING - PLACEMENT_SEPARATION; // 24
-        int chunkX = r.nextInt(k);
-        int chunkZ = r.nextInt(k);
+
+        // 360 derecelik rastgele bir açıda 150-250 chunk (2400 - 4000 blok) mesafe
+        double angle = (r.nextInt(360)) * (Math.PI / 180.0D);
+        int chunkDistance = 150 + r.nextInt(100);
+
+        int targetChunkX = (int) Math.round(Math.cos(angle) * chunkDistance);
+        int targetChunkZ = (int) Math.round(Math.sin(angle) * chunkDistance);
+
+        int sectionX = Math.floorDiv(targetChunkX, PLACEMENT_SPACING);
+        int sectionZ = Math.floorDiv(targetChunkZ, PLACEMENT_SPACING);
+
+        r.setLargeFeatureWithSalt(seed, sectionX, sectionZ, PLACEMENT_SALT);
+        int k = PLACEMENT_SPACING - PLACEMENT_SEPARATION; // 48
+        int chunkX = sectionX * PLACEMENT_SPACING + r.nextInt(k);
+        int chunkZ = sectionZ * PLACEMENT_SPACING + r.nextInt(k);
+
         return new net.minecraft.world.level.ChunkPos(chunkX, chunkZ);
     }
 

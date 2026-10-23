@@ -24,6 +24,15 @@ public class RedstoneArenaStructurePiece extends StructurePiece {
         this.setOrientation(null);
     }
 
+    public RedstoneArenaStructurePiece(int chunkX, int chunkZ, BlockPos centerPos) {
+        super(ModStructures.REDSTONE_ARENA_PIECE.get(), 0, new BoundingBox(
+                chunkX << 4, -64, chunkZ << 4,
+                (chunkX << 4) + 15, -16, (chunkZ << 4) + 15
+        ));
+        this.centerPos = centerPos;
+        this.setOrientation(null);
+    }
+
     public RedstoneArenaStructurePiece(StructurePieceSerializationContext context, CompoundTag tag) {
         super(ModStructures.REDSTONE_ARENA_PIECE.get(), tag);
         if (tag.contains("CenterX")) {
