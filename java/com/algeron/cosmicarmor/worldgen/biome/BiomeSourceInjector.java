@@ -4,11 +4,13 @@ import com.algeron.cosmicarmor.CosmicArmorMod;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.server.level.ChunkMap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeSource;
 import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.chunk.ChunkGeneratorStructureState;
 import net.minecraftforge.event.level.LevelEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -66,6 +68,25 @@ public class BiomeSourceInjector {
 
             if (!injected) {
                 LOGGER.warn("[CosmicArmor] Could not find BiomeSource field in ChunkGenerator");
+            }
+
+            // ChunkMap içindeki chunkGeneratorState alanını da yeni customSource ile yenile
+            try {
+                ChunkGeneratorStructureState newState = generator.createState(
+                        level.registryAccess().lookupOrThrow(Registries.STRUCTURE_SET),
+                        level.getChunkSource().randomState(),
+                        seed
+                );
+                for (Field f : ChunkMap.class.getDeclaredFields()) {
+                    if (ChunkGeneratorStructureState.class.isAssignableFrom(f.getType())) {
+                        f.setAccessible(true);
+                        f.set(level.getChunkSource().chunkMap, newState);
+                        LOGGER.info("[CosmicArmor] Successfully refreshed ChunkGeneratorStructureState in ChunkMap!");
+                        break;
+                    }
+                }
+            } catch (Exception ex) {
+                LOGGER.warn("[CosmicArmor] Could not refresh ChunkGeneratorStructureState in ChunkMap: {}", ex.getMessage());
             }
         } catch (Exception e) {
             LOGGER.error("[CosmicArmor] Failed to inject RedstoneDepthsBiomeSource", e);

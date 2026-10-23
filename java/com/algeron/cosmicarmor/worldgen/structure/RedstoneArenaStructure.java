@@ -11,6 +11,7 @@ import net.minecraft.world.level.levelgen.structure.pieces.StructurePiecesBuilde
 import org.slf4j.Logger;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class RedstoneArenaStructure extends Structure {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -19,14 +20,24 @@ public class RedstoneArenaStructure extends Structure {
 
     public static final int DEFAULT_GENERATION_Y = -42;
 
+    private static final AtomicBoolean LOGGED_FIRST_FIND = new AtomicBoolean(false);
+    private static final AtomicBoolean LOGGED_MATCH = new AtomicBoolean(false);
+
     public RedstoneArenaStructure(StructureSettings settings) {
         super(settings);
     }
 
     @Override
     protected Optional<GenerationStub> findGenerationPoint(GenerationContext context) {
+        ChunkPos currentChunk = context.chunkPos();
         ChunkPos targetChunk = RedstoneDepthsBiomeSource.getUniqueCenterChunk(context.seed());
-        if (!context.chunkPos().equals(targetChunk)) {
+
+        if (LOGGED_FIRST_FIND.compareAndSet(false, true)) {
+            LOGGER.info("[CosmicArmor-WorldGen] findGenerationPoint CALLED for chunk [{}, {}]. Target is [{}, {}]",
+                    currentChunk.x, currentChunk.z, targetChunk.x, targetChunk.z);
+        }
+
+        if (!currentChunk.equals(targetChunk)) {
             return Optional.empty();
         }
 
@@ -34,8 +45,10 @@ public class RedstoneArenaStructure extends Structure {
         int chunkZ = targetChunk.getMiddleBlockZ();
         BlockPos spawnPos = new BlockPos(chunkX, DEFAULT_GENERATION_Y, chunkZ);
 
-        LOGGER.info("[CosmicArmor-WorldGen] StructureStart CREATED for Redstone Arena at candidate chunk [{}, {}] (WorldPos: {}, {}, {})",
-                targetChunk.x, targetChunk.z, chunkX, DEFAULT_GENERATION_Y, chunkZ);
+        if (LOGGED_MATCH.compareAndSet(false, true)) {
+            LOGGER.info("[CosmicArmor-WorldGen] StructureStart CREATED for Redstone Arena at candidate chunk [{}, {}] (WorldPos: {}, {}, {})",
+                    targetChunk.x, targetChunk.z, chunkX, DEFAULT_GENERATION_Y, chunkZ);
+        }
 
         return Optional.of(new GenerationStub(spawnPos, builder -> {
             generatePieces(builder, spawnPos);

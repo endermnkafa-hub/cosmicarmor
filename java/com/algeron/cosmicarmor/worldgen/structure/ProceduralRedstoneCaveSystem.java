@@ -32,15 +32,15 @@ import java.util.concurrent.atomic.AtomicLong;
  * Kızıltaş Derinlikleri Prosedürel 3D Elipsoid Mağara ve Boss Arenası Sistemi.
  *
  * Aşama 1 (r <= 54): Basık 3D Elipsoid Monolitik Dış Küre ve İç Savaş Arenası
- * Aşama 2 (54 < r <= 85): Tuzaklı Katakomplar (Lav hendekleri, tripwire, mayınlar, spawnerlar)
- * Aşama 3 (85 < r <= 115): Basit Kızıltaş Makineleri (Çalışan pistonlar, asılı lambalar, galeriler)
- * Aşama 4 (115 < r <= 165): Devasa Doğal Mağaralar (20-30 blok tavan, dev kaya sütunları, yoğun cevher damarları)
+ * Aşama 2 (54 < r <= 85): Tuzaklı Katakomplar (Geniş birbirine bağlı labirent salonlar, lav hendekleri, mayınlar, tuzaklar)
+ * Aşama 3 (85 < r <= 115): Kadim Kızıltaş Makineleri (Geniş atölye galerileri, pistonlar, asılı lambalar, makineler)
+ * Aşama 4 (115 < r <= 165): Devasa Katedral Mağaraları (25-34 blok tavan, dev kaya sütunları, yoğun kızıltaş cevher damarları)
  */
 public class ProceduralRedstoneCaveSystem {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    // Debug Sayaçları (Kabul testleri ve çalışma zamanı doğrulaması için)
+    // Debug Sayaçları
     public static final AtomicInteger TOTAL_CHUNKS_PROCESSED = new AtomicInteger();
     public static final AtomicLong TOTAL_BLOCKS_CARVED = new AtomicLong();
     public static final AtomicLong STAGE1_BLOCKS = new AtomicLong();
@@ -101,7 +101,7 @@ public class ProceduralRedstoneCaveSystem {
                 }
 
                 // =========================================================
-                // AŞAMALAR 2, 3, 4: PROSEDÜREL MAĞARA AĞI (54.0 < r <= 165.0)
+                // AŞAMALAR 2, 3, 4: PROSEDÜREL GENİŞ MAĞARA AĞI (54.0 < r <= 165.0)
                 // =========================================================
                 int stage = getStage(distXZ);
                 boolean inCavern = isInsideCavern(x, z, dx, dz, distXZ, angle, stage, breachAngle, worldSeed);
@@ -125,7 +125,7 @@ public class ProceduralRedstoneCaveSystem {
             STAGE3_BLOCKS.addAndGet(s3);
             STAGE4_BLOCKS.addAndGet(s4);
 
-            LOGGER.info("[CosmicArmor-WorldGen] Chunk [{}, {}]: Modified {} blocks (S1: {}, S2: {}, S3: {}, S4: {}) | Cumulative: {} chunks, {} blocks",
+            LOGGER.info("[CosmicArmor-WorldGen] Chunk [{}, {}]: Carved/Modified {} blocks (S1: {}, S2: {}, S3: {}, S4: {}) | Cumulative: {} chunks, {} blocks",
                     chunkPos.x, chunkPos.z, chunkModifiedCount, s1, s2, s3, s4,
                     TOTAL_CHUNKS_PROCESSED.get(), TOTAL_BLOCKS_CARVED.get());
         }
@@ -154,7 +154,7 @@ public class ProceduralRedstoneCaveSystem {
                                              double angle, double breachAngle, long seed) {
 
         long modified = 0;
-        boolean isBreach = isNearAngle(angle, breachAngle, 0.085D);
+        boolean isBreach = isNearAngle(angle, breachAngle, 0.095D);
 
         for (int y = -62; y <= -18; y++) {
             pos.set(x, y, z);
@@ -215,7 +215,7 @@ public class ProceduralRedstoneCaveSystem {
                 continue;
             }
 
-            // 4 Büyük Destek Sütunu Kontrolü (|dx| == 18..20 ve |dz| == 18..20)
+            // 4 Büyük Destek Sütunu Kontrolü (|dx| == 18..21 ve |dz| == 18..21)
             if (isNearPillar(dx, dz) && y <= ARENA_FLOOR_Y + 16) {
                 int hash = (x * 7 + y * 19 + z * 11) & 0x7FFFFFFF;
                 BlockState pillarState = (hash % 3 == 0)
@@ -269,72 +269,69 @@ public class ProceduralRedstoneCaveSystem {
     }
 
     // =========================================================================
-    // AŞAMALAR 2, 3, 4: GENİŞLETİLMİŞ MAĞARA GEOMETRİSİ
+    // AŞAMALAR 2, 3, 4: GERÇEK VE GENİŞLETİLMİŞ ORGANİK MAĞARA OYMA ALGORİTMASI
     // =========================================================================
     private static boolean isInsideCavern(int x, int z, int dx, int dz, double distXZ, double angle, int stage, double breachAngle, long seed) {
-        // 1. Ana Giriş Omurgası (Giriş yarığından Aşama 2, 3, 4 boyunca uzanan koridor)
-        double entranceWobble = Math.sin(distXZ * 0.05D + seed % 100) * 0.15D;
-        if (isNearAngle(angle, breachAngle + entranceWobble, 0.09D)) {
+        double seedTerm = (seed & 0xFFFF) * 0.0013D;
+
+        // 1. Ana Giriş Omurgası (Giriş yarığından tüm aşamalar boyunca uzanan ana koridor)
+        double entranceWobble = Math.sin(distXZ * 0.05D + seedTerm * 10.0D) * 0.15D;
+        if (isNearAngle(angle, breachAngle + entranceWobble, 0.12D)) {
             return true;
         }
 
-        // 2. 6 Büyük Radyal Ana Arter Kolu (Geniş salonlar)
-        int numBranches = 6;
+        // 2. 8 Adet Ana Radyal Koridor (Her yöne açılan geniş caddeler)
+        int numBranches = 8;
         double branchSpacing = (2.0D * Math.PI) / numBranches;
-
         for (int i = 0; i < numBranches; i++) {
             double baseBranchAngle = breachAngle + i * branchSpacing;
-            double wobble = Math.sin(distXZ * 0.04D + i * 1.5D + (seed & 0xFF)) * 0.18D;
+            double wobble = Math.sin(distXZ * 0.04D + i * 1.3D + seedTerm) * 0.16D;
             double targetAngle = baseBranchAngle + wobble;
 
-            double widthThreshold;
-            if (stage == 2) {
-                // Aşama 2: 7-9 blok genişlik
-                widthThreshold = 0.09D + Math.sin(distXZ * 0.1D) * 0.02D;
-            } else if (stage == 3) {
-                // Aşama 3: 14-18 blok genişlik
-                widthThreshold = 0.15D + Math.cos(distXZ * 0.08D) * 0.03D;
-            } else {
-                // Aşama 4: 22-34 blok genişlik devasa kanyonlar
-                widthThreshold = 0.22D + Math.sin(distXZ * 0.06D + i) * 0.05D;
-            }
-
+            double widthThreshold = (stage == 2) ? 0.11D : ((stage == 3) ? 0.16D : 0.22D);
             if (isNearAngle(angle, targetAngle, widthThreshold)) {
                 return true;
             }
         }
 
-        // 3. Eşmerkezli Halka Galeriler (Concentric Ring Caverns)
-        // Aşama 2 Halkası: r in [68, 77]
-        if (stage == 2 && distXZ >= 68.0D && distXZ <= 77.0D) {
-            int segment = (int) (Math.toDegrees(angle) / 20.0D);
-            if ((segment + (int)(seed % 5)) % 4 != 0) return true;
-        }
-
-        // Aşama 3 Halkası: r in [95, 108] (Geniş mekanik galeri)
-        if (stage == 3 && distXZ >= 95.0D && distXZ <= 108.0D) {
-            int segment = (int) (Math.toDegrees(angle) / 25.0D);
-            if ((segment + (int)(seed % 7)) % 5 != 0) return true;
-        }
-
-        // Aşama 4 Halkası: r in [130, 155] (Büyük dış doğal halka mağarası)
-        if (stage == 4 && distXZ >= 130.0D && distXZ <= 155.0D) {
+        // 3. Eşmerkezli Dairesel Halka Koridorlar (Bütün radyal caddeleri ve odaları kesintisiz bağlar)
+        // Aşama 2 Halkaları: r in [62, 68] ve r in [76, 82]
+        if (stage == 2 && ((distXZ >= 62.0D && distXZ <= 68.0D) || (distXZ >= 76.0D && distXZ <= 82.0D))) {
             return true;
         }
 
-        // 4. Aşama 4'te Organik 3D Hücresel Mağara Cepleri (Geniş hacimli doğal odalar)
-        if (stage == 4) {
-            double cavernNoise = Math.sin(x * 0.05D + z * 0.04D) * Math.cos(x * 0.04D - z * 0.05D)
-                    + 0.4D * Math.sin(x * 0.09D + z * 0.08D);
-            if (cavernNoise > 0.12D) {
-                return true;
-            }
+        // Aşama 3 Halkaları: r in [92, 99] ve r in [106, 113]
+        if (stage == 3 && ((distXZ >= 92.0D && distXZ <= 99.0D) || (distXZ >= 106.0D && distXZ <= 113.0D))) {
+            return true;
         }
 
-        // 5. Aşama 3 Yan Atölye Odaları
-        if (stage == 3 && distXZ >= 88.0D && distXZ <= 112.0D) {
-            double workshopNoise = Math.sin(x * 0.07D - z * 0.06D) * Math.cos(x * 0.06D + z * 0.07D);
-            if (workshopNoise > 0.25D) {
+        // Aşama 4 Halkaları: r in [124, 134], r in [142, 151], r in [157, 164]
+        if (stage == 4 && ((distXZ >= 124.0D && distXZ <= 134.0D) ||
+                           (distXZ >= 142.0D && distXZ <= 151.0D) ||
+                           (distXZ >= 157.0D && distXZ <= 164.0D))) {
+            return true;
+        }
+
+        // 4. Katı Ölü Bölgeleri Ortadan Kaldıran Organik Hücresel Gürültü Oyması
+        if (stage == 4) {
+            // Aşama 4: Devasa katedral mağaraları (~%75-80 alan oyuktur)
+            double cavernNoise = Math.sin(x * 0.042D + z * 0.038D + seedTerm) * Math.cos(x * 0.038D - z * 0.042D)
+                    + 0.38D * Math.sin(x * 0.082D + z * 0.076D);
+            if (cavernNoise > -0.22D) {
+                return true;
+            }
+        } else if (stage == 3) {
+            // Aşama 3: Geniş atölye ve mekanik galeriler (~%65 alan oyuktur)
+            double workshopNoise = Math.sin(x * 0.055D - z * 0.050D + seedTerm) * Math.cos(x * 0.050D + z * 0.055D)
+                    + 0.32D * Math.sin(x * 0.095D + z * 0.090D);
+            if (workshopNoise > -0.12D) {
+                return true;
+            }
+        } else if (stage == 2) {
+            // Aşama 2: Birbirine bağlı labirent katakomp salonları (~%55 alan oyuktur)
+            double catacombNoise = Math.sin(x * 0.075D + z * 0.068D + seedTerm) * Math.cos(x * 0.068D - z * 0.075D)
+                    + 0.28D * Math.sin(x * 0.130D - z * 0.120D);
+            if (catacombNoise > -0.05D) {
                 return true;
             }
         }
@@ -357,23 +354,28 @@ public class ProceduralRedstoneCaveSystem {
         int ceilY;
 
         if (stage == 4) {
-            // AŞAMA 4: 20-30 BLOK YÜKSEKLİKTE DEVASA KATEDRAL MAĞARALARI
+            // AŞAMA 4: 25-34 BLOK YÜKSEKLİKTE DEVASA KATEDRAL DOĞAL MAĞARALARI
             floorY = -54 + (int) Math.round(Math.sin(x * 0.04D + z * 0.04D) * 2.5D);
             ceilY = -22 + (int) Math.round(Math.cos(x * 0.03D - z * 0.03D) * 3.5D);
 
-            // Aşama 4 Kaya Sütunları: Zeminden tavana bağlanan dev kolonlar
+            // Aşama 4 Doğal Kaya Sütunları: Devasa kolonlar
             int pillarHash = (x * 73 + z * 37 + (int)(seed & 0xFFFF)) & 0x7FFFFFFF;
-            if (pillarHash % 89 == 0) {
+            if (pillarHash % 67 == 0 || (Math.abs(x % 24) <= 1 && Math.abs(z % 24) <= 1 && pillarHash % 2 == 0)) {
                 return buildNaturalRockPillar(level, pos, x, z, floorY, ceilY);
             }
         } else if (stage == 3) {
-            // AŞAMA 3: 14-18 BLOK YÜKSEKLİKTE MAKİNE GALERİLERİ
+            // AŞAMA 3: 15-19 BLOK YÜKSEKLİKTE MAKİNE GALERİLERİ
             floorY = -51 + (int) Math.round(Math.sin(x * 0.06D + z * 0.06D) * 1.5D);
-            ceilY = -35 + (int) Math.round(Math.cos(x * 0.05D - z * 0.05D) * 2.0D);
+            ceilY = -34 + (int) Math.round(Math.cos(x * 0.05D - z * 0.05D) * 2.0D);
+
+            // Aşama 3 Destek Kolonları
+            if (Math.abs(x % 16) == 0 && Math.abs(z % 16) == 0) {
+                return buildMachineSupportPillar(level, pos, x, z, floorY, ceilY);
+            }
         } else {
-            // AŞAMA 2: 8-10 BLOK YÜKSEKLİKTE KLASİK TUZAKLI MAĞARALAR
+            // AŞAMA 2: 9-11 BLOK YÜKSEKLİKTE TUZAKLI KATAKOMPLAR
             floorY = -50 + (int) Math.round(Math.sin(x * 0.08D + z * 0.08D) * 1.0D);
-            ceilY = -41 + (int) Math.round(Math.cos(x * 0.07D - z * 0.07D) * 1.2D);
+            ceilY = -40 + (int) Math.round(Math.cos(x * 0.07D - z * 0.07D) * 1.2D);
         }
 
         floorY = Math.max(-62, floorY);
@@ -393,11 +395,11 @@ public class ProceduralRedstoneCaveSystem {
                     else if (hash % 11 == 0) fl = Blocks.REDSTONE_BLOCK.defaultBlockState();
                     else fl = Blocks.DEEPSLATE.defaultBlockState();
                 } else if (stage == 3) {
-                    if (hash % 6 == 0) fl = Blocks.DEEPSLATE_TILES.defaultBlockState();
-                    else if (hash % 4 == 0) fl = Blocks.DEEPSLATE_BRICKS.defaultBlockState();
+                    if (hash % 5 == 0) fl = Blocks.DEEPSLATE_TILES.defaultBlockState();
+                    else if (hash % 3 == 0) fl = Blocks.DEEPSLATE_BRICKS.defaultBlockState();
                     else fl = Blocks.POLISHED_DEEPSLATE.defaultBlockState();
                 } else {
-                    if (hash % 5 == 0) fl = Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState();
+                    if (hash % 4 == 0) fl = Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState();
                     else fl = Blocks.DEEPSLATE_TILES.defaultBlockState();
                 }
                 level.setBlock(pos, fl, 2);
@@ -435,7 +437,7 @@ public class ProceduralRedstoneCaveSystem {
 
     private static long buildNaturalRockPillar(WorldGenLevel level, BlockPos.MutableBlockPos pos, int x, int z, int floorY, int ceilY) {
         long count = 0;
-        for (int y = floorY; y <= ceilY; y++) {
+        for (int y = floorY - 1; y <= ceilY; y++) {
             pos.set(x, y, z);
             int h = (x * 19 + y * 13 + z * 7) & 0x7FFFFFFF;
             BlockState pillar = (h % 3 == 0)
@@ -447,19 +449,32 @@ public class ProceduralRedstoneCaveSystem {
         return count;
     }
 
+    private static long buildMachineSupportPillar(WorldGenLevel level, BlockPos.MutableBlockPos pos, int x, int z, int floorY, int ceilY) {
+        long count = 0;
+        for (int y = floorY - 1; y <= ceilY; y++) {
+            pos.set(x, y, z);
+            BlockState pillar = (y == floorY + 1 || y == ceilY - 1)
+                    ? Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState()
+                    : Blocks.CHISELED_DEEPSLATE.defaultBlockState();
+            level.setBlock(pos, pillar, 2);
+            count++;
+        }
+        return count;
+    }
+
     private static void placeDecorations(WorldGenLevel level, BlockPos pos, int x, int z,
                                          int floorY, int stage, double distXZ, double angleDeg, long seed) {
         int hash = (x * 47 + z * 31 + (int)(seed & 0xFFF)) & 0x7FFFFFFF;
 
         if (stage == 2) {
-            // Lav Çukuru
-            if (distXZ >= 70.0D && distXZ <= 72.0D && (hash % 9 == 0)) {
+            // Lav Çukurları
+            if (distXZ >= 70.0D && distXZ <= 72.0D && (hash % 11 == 0)) {
                 level.setBlock(pos, Blocks.LAVA.defaultBlockState(), 2);
                 level.setBlock(pos.below(), Blocks.LAVA.defaultBlockState(), 2);
                 return;
             }
-            // TNT ve Mayın Tuzakları
-            if (distXZ >= 76.0D && distXZ <= 79.0D && (hash % 11 == 0)) {
+            // Mayınlar ve TNT
+            if (distXZ >= 76.0D && distXZ <= 79.0D && (hash % 13 == 0)) {
                 level.setBlock(pos.below(2), Blocks.TNT.defaultBlockState(), 2);
                 level.setBlock(pos.below(1), Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState(), 2);
                 level.setBlock(pos, Blocks.STONE_PRESSURE_PLATE.defaultBlockState(), 2);
@@ -469,8 +484,8 @@ public class ProceduralRedstoneCaveSystem {
                 level.setBlock(pos, ModBlocks.REDSTONE_LANDMINE.get().defaultBlockState(), 2);
                 return;
             }
-            // Tripwire ve Zehirli/Hasarlı Ok Atan Dispenser
-            if (distXZ >= 62.0D && distXZ <= 64.0D && (hash % 15 == 0)) {
+            // Tripwire ve Hasarlı Ok Atan Dispenserlar
+            if (distXZ >= 62.0D && distXZ <= 65.0D && (hash % 17 == 0)) {
                 level.setBlock(pos, Blocks.TRIPWIRE.defaultBlockState(), 2);
                 BlockPos wallPos = pos.east(2);
                 level.setBlock(wallPos, Blocks.TRIPWIRE_HOOK.defaultBlockState().setValue(TripWireHookBlock.FACING, Direction.WEST), 2);
@@ -485,8 +500,8 @@ public class ProceduralRedstoneCaveSystem {
                 }
                 return;
             }
-            // Spawner
-            if (distXZ >= 80.0D && distXZ <= 83.0D && (hash % 25 == 0)) {
+            // Spawnerlar
+            if (distXZ >= 80.0D && distXZ <= 84.0D && (hash % 29 == 0)) {
                 level.setBlock(pos, Blocks.SPAWNER.defaultBlockState(), 2);
                 BlockEntity be = level.getBlockEntity(pos);
                 if (be instanceof SpawnerBlockEntity spawner) {
@@ -498,21 +513,20 @@ public class ProceduralRedstoneCaveSystem {
                 level.setBlock(pos, Blocks.REDSTONE_WIRE.defaultBlockState(), 2);
             }
         } else if (stage == 3) {
-            // Piston Düzeneği
+            // Çalışan Piston Düzenekleri
             if (distXZ >= 92.0D && distXZ <= 95.0D && (hash % 11 == 0)) {
                 level.setBlock(pos, Blocks.PISTON.defaultBlockState().setValue(PistonBaseBlock.FACING, Direction.UP), 2);
                 level.setBlock(pos.below(), Blocks.REDSTONE_BLOCK.defaultBlockState(), 2);
                 return;
             }
-            // Lambalar
-            if (distXZ >= 102.0D && distXZ <= 105.0D && (hash % 13 == 0)) {
+            // Asılı Lambalar ve Kızıltaş Fenerleri
+            if (distXZ >= 102.0D && distXZ <= 106.0D && (hash % 13 == 0)) {
                 level.setBlock(pos, Blocks.REDSTONE_WIRE.defaultBlockState(), 2);
                 level.setBlock(pos.above(1), Blocks.REDSTONE_LAMP.defaultBlockState(), 2);
                 level.setBlock(pos.above(2), Blocks.REDSTONE_TORCH.defaultBlockState(), 2);
                 return;
             }
-            // Fenerler
-            if (hash % 17 == 0) {
+            if (hash % 19 == 0) {
                 level.setBlock(pos, Blocks.CHAIN.defaultBlockState(), 2);
                 level.setBlock(pos.above(1), Blocks.LANTERN.defaultBlockState(), 2);
             }
@@ -520,9 +534,9 @@ public class ProceduralRedstoneCaveSystem {
                 level.setBlock(pos, Blocks.REDSTONE_WIRE.defaultBlockState(), 2);
             }
         } else if (stage == 4) {
-            if (hash % 7 == 0 && level.getBlockState(pos.below()).isSolid()) {
+            if (hash % 5 == 0 && level.getBlockState(pos.below()).isSolid()) {
                 level.setBlock(pos.below(), Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState(), 2);
-            } else if (hash % 19 == 0) {
+            } else if (hash % 17 == 0) {
                 level.setBlock(pos, Blocks.REDSTONE_WIRE.defaultBlockState(), 2);
             }
         }

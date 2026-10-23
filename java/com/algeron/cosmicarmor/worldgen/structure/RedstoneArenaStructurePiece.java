@@ -1,5 +1,6 @@
 package com.algeron.cosmicarmor.worldgen.structure;
 
+import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.RandomSource;
@@ -10,8 +11,13 @@ import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.StructurePiece;
 import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSerializationContext;
+import org.slf4j.Logger;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class RedstoneArenaStructurePiece extends StructurePiece {
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final AtomicBoolean LOGGED_FIRST_POSTPROCESS = new AtomicBoolean(false);
 
     private final BlockPos centerPos;
 
@@ -55,6 +61,10 @@ public class RedstoneArenaStructurePiece extends StructurePiece {
 
     @Override
     public void postProcess(WorldGenLevel level, StructureManager structureManager, ChunkGenerator generator, RandomSource random, BoundingBox box, ChunkPos chunkPos, BlockPos pos) {
+        if (LOGGED_FIRST_POSTPROCESS.compareAndSet(false, true)) {
+            LOGGER.info("[CosmicArmor-WorldGen] postProcess CALLED for chunk [{}, {}]! centerPos={}, seed={}",
+                    chunkPos.x, chunkPos.z, this.centerPos, level.getSeed());
+        }
         ProceduralRedstoneCaveSystem.generate(level, box, chunkPos, this.centerPos, level.getSeed());
     }
 }
