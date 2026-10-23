@@ -1,0 +1,467 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.redstone_golem",
+        "texture_width": 256,
+        "texture_height": 256,
+        "visible_bounds_width": 6,
+        "visible_bounds_height": 5.5,
+        "visible_bounds_offset": [
+          0,
+          2.25,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "redstone_golem",
+          "pivot": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "redstone_golem_leg_right",
+          "parent": "redstone_golem",
+          "pivot": [
+            8.5,
+            19,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                7,
+                0,
+                -6.5
+              ],
+              "size": [
+                12,
+                20,
+                12
+              ],
+              "uv": [
+                113,
+                58
+              ],
+              "mirror": true
+            }
+          ]
+        },
+        {
+          "name": "redstone_golem_leg_left",
+          "parent": "redstone_golem",
+          "pivot": [
+            -8.5,
+            19,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -19,
+                0,
+                -6.5
+              ],
+              "size": [
+                12,
+                20,
+                12
+              ],
+              "uv": [
+                113,
+                58
+              ]
+            }
+          ]
+        },
+        {
+          "name": "redstone_golem_hip",
+          "parent": "redstone_golem",
+          "pivot": [
+            0,
+            24,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -11,
+                20,
+                -7
+              ],
+              "size": [
+                22,
+                8,
+                14
+              ],
+              "uv": [
+                120,
+                36
+              ]
+            }
+          ]
+        },
+        {
+          "name": "redstone_golem_torso",
+          "parent": "redstone_golem_hip",
+          "pivot": [
+            0,
+            30,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -20,
+                28,
+                -10
+              ],
+              "size": [
+                40,
+                32,
+                20
+              ],
+              "uv": [
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "redstone_golem_core",
+          "parent": "redstone_golem_torso",
+          "pivot": [
+            0,
+            40,
+            8
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -8,
+                32,
+                0
+              ],
+              "size": [
+                16,
+                16,
+                16
+              ],
+              "uv": [
+                49,
+                90
+              ]
+            }
+          ]
+        },
+        {
+          "name": "redstone_golem_head",
+          "parent": "redstone_golem_torso",
+          "pivot": [
+            0,
+            48,
+            -13
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -8,
+                44,
+                -22
+              ],
+              "size": [
+                16,
+                16,
+                12
+              ],
+              "uv": [
+                124,
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "name": "redstone_golem_arm_left",
+          "parent": "redstone_golem_torso",
+          "pivot": [
+            -22,
+            54,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -34,
+                34,
+                -7
+              ],
+              "size": [
+                14,
+                24,
+                12
+              ],
+              "uv": [
+                0,
+                52
+              ]
+            }
+          ]
+        },
+        {
+          "name": "redstone_golem_forearm_left",
+          "parent": "redstone_golem_arm_left",
+          "pivot": [
+            -28.5,
+            33,
+            -1
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -36,
+                12,
+                -7
+              ],
+              "size": [
+                11,
+                22,
+                12
+              ],
+              "uv": [
+                3,
+                88
+              ],
+              "mirror": true
+            }
+          ]
+        },
+        {
+          "name": "redstone_golem_finger_left_1",
+          "parent": "redstone_golem_forearm_left",
+          "pivot": [
+            -33.5,
+            11,
+            2.5
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -35,
+                2,
+                0
+              ],
+              "size": [
+                3,
+                10,
+                5
+              ],
+              "uv": [
+                97,
+                55
+              ]
+            }
+          ]
+        },
+        {
+          "name": "redstone_golem_finger_left_2",
+          "parent": "redstone_golem_forearm_left",
+          "pivot": [
+            -33.5,
+            11,
+            -3.5
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -35,
+                2,
+                -6
+              ],
+              "size": [
+                3,
+                10,
+                5
+              ],
+              "uv": [
+                97,
+                55
+              ]
+            }
+          ]
+        },
+        {
+          "name": "redstone_golem_finger_left_3",
+          "parent": "redstone_golem_forearm_left",
+          "pivot": [
+            -28.5,
+            11,
+            -0.5
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -30,
+                4,
+                -3
+              ],
+              "size": [
+                3,
+                8,
+                5
+              ],
+              "uv": [
+                81,
+                57
+              ]
+            }
+          ]
+        },
+        {
+          "name": "redstone_golem_arm_right",
+          "parent": "redstone_golem_torso",
+          "pivot": [
+            22,
+            54,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                20,
+                34,
+                -7
+              ],
+              "size": [
+                14,
+                24,
+                12
+              ],
+              "uv": [
+                0,
+                52
+              ],
+              "mirror": true
+            }
+          ]
+        },
+        {
+          "name": "redstone_golem_forearm_right",
+          "parent": "redstone_golem_arm_right",
+          "pivot": [
+            28.5,
+            33,
+            -1
+          ],
+          "cubes": [
+            {
+              "origin": [
+                25,
+                12,
+                -7
+              ],
+              "size": [
+                11,
+                22,
+                12
+              ],
+              "uv": [
+                3,
+                88
+              ]
+            }
+          ]
+        },
+        {
+          "name": "redstone_golem_finger_right_1",
+          "parent": "redstone_golem_forearm_right",
+          "pivot": [
+            33.5,
+            11,
+            2.5
+          ],
+          "cubes": [
+            {
+              "origin": [
+                32,
+                2,
+                0
+              ],
+              "size": [
+                3,
+                10,
+                5
+              ],
+              "uv": [
+                97,
+                55
+              ],
+              "mirror": true
+            }
+          ]
+        },
+        {
+          "name": "redstone_golem_finger_right_2",
+          "parent": "redstone_golem_forearm_right",
+          "pivot": [
+            33.5,
+            11,
+            -3.5
+          ],
+          "cubes": [
+            {
+              "origin": [
+                32,
+                2,
+                -6
+              ],
+              "size": [
+                3,
+                10,
+                5
+              ],
+              "uv": [
+                97,
+                55
+              ],
+              "mirror": true
+            }
+          ]
+        },
+        {
+          "name": "redstone_golem_finger_right_3",
+          "parent": "redstone_golem_forearm_right",
+          "pivot": [
+            28.5,
+            11,
+            -0.5
+          ],
+          "cubes": [
+            {
+              "origin": [
+                27,
+                4,
+                -3
+              ],
+              "size": [
+                3,
+                8,
+                5
+              ],
+              "uv": [
+                81,
+                57
+              ],
+              "mirror": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+	"format_version": "1.12.0",
+	"minecraft:geometry": [
+		{
+			"description": {
+				"identifier": "geometry.redstone_landmine",
+				"texture_width": 256,
+				"texture_height": 256,
+				"visible_bounds_width": 2,
+				"visible_bounds_height": 1.5,
+				"visible_bounds_offset": [0, 0.25, 0]
+			},
+			"bones": [
+				{
+					"name": "bb_main",
+					"pivot": [0, 0, 0],
+					"cubes": [
+						{
+							"origin": [-7, -1, -7],
+							"size": [14, 3, 14],
+							"uv": {
+								"north": {"uv": [2.0625, 6.625], "uv_size": [1, 1]},
+								"east": {"uv": [2.0625, 6.625], "uv_size": [1, 1]},
+								"south": {"uv": [42, 14], "uv_size": [14, 3]},
+								"west": {"uv": [28, 14], "uv_size": [14, 3]},
+								"up": {"uv": [2.0625, 6.625], "uv_size": [1, 1]},
+								"down": {"uv": [2.0625, 7.625], "uv_size": [1, -1]}
+							}
+						}
+					]
+				},
+				{
+					"name": "button",
+					"pivot": [0, 0, 0],
+					"cubes": [
+						{
+							"origin": [-5, 1, -5],
+							"size": [10, 2, 10],
+							"uv": {
+								"north": {"uv": [6.0625, 6.625], "uv_size": [1, 1]},
+								"east": {"uv": [6.0625, 6.625], "uv_size": [1, 1]},
+								"south": {"uv": [30, 10], "uv_size": [10, 2]},
+								"west": {"uv": [6.0625, 6.625], "uv_size": [1, 1]},
+								"up": {"uv": [6.0625, 6.625], "uv_size": [1, 1]},
+								"down": {"uv": [6.0625, 7.625], "uv_size": [1, -1]}
+							}
+						}
+					]
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,20 @@
+{
+	"format_version": "1.8.0",
+	"animations": {
+		"redstone_golem_landmine_down": {
+			"animation_length": 0.0833,
+			"bones": {
+				"button": {
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.0833": {
+							"vector": [0, -0.8, 0]
+						}
+					}
+				}
+			}
+		}
+	}
+}

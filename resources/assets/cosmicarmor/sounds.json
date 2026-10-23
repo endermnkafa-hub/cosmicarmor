@@ -1,0 +1,26 @@
+{
+  "fist": {
+    "category": "player",
+    "subtitle": "subtitles.cosmicarmor.fist",
+    "sounds": [
+      {
+        "name": "cosmicarmor:fist",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "bf": {
+    "category": "player",
+    "subtitle": "subtitles.cosmicarmor.bf",
+    "sounds": [
+      {
+        "name": "cosmicarmor:bf",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  }
+}
