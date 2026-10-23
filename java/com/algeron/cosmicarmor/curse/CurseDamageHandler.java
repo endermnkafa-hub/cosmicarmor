@@ -144,7 +144,7 @@ public class CurseDamageHandler {
             return 0.10F;
         }
 
-        double fark = (double) (targetCurse - weaponCurse) / (double) targetCurse;
+        double fark = (double) (targetCurse - weaponCurse) / 100.0D;
 
         if (fark <= 0.0D) {
             // Oyuncunun laneti hedeften eşit veya üstünse bonus hasar
@@ -220,7 +220,10 @@ public class CurseDamageHandler {
             return 1.0F; // Lanetsiz oyuncuya normal boss hasarı
         }
 
-        double fark = (double) (bossCurse - slotCurse) / (double) bossCurse;
+        // 100 Lanet standardına göre fark oranı:
+        // Fark 100 seviyeyi / %100'ü aştığında (örneğin 150 lanetlik bir yaratığa karşı 0 zırhla fark = 1.50),
+        // ceza artık %416'da takılı kalmaz, katlanarak artmaya devam eder!
+        double fark = (double) (bossCurse - slotCurse) / 100.0D;
 
         if (fark <= 0.0D) {
             double advantage = Math.abs(fark);

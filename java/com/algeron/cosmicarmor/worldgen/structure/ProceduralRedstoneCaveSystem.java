@@ -31,10 +31,10 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Kızıltaş Derinlikleri Prosedürel 3D Elipsoid Mağara ve Boss Arenası Sistemi.
  *
- * Aşama 1 (r <= 54): Basık 3D Elipsoid Monolitik Dış Küre ve İç Savaş Arenası
- * Aşama 2 (54 < r <= 85): Tuzaklı Katakomplar (Geniş birbirine bağlı labirent salonlar, lav hendekleri, mayınlar, tuzaklar)
- * Aşama 3 (85 < r <= 115): Kadim Kızıltaş Makineleri (Geniş atölye galerileri, pistonlar, asılı lambalar, makineler)
- * Aşama 4 (115 < r <= 165): Devasa Katedral Mağaraları (25-34 blok tavan, dev kaya sütunları, yoğun kızıltaş cevher damarları)
+ * Aşama 1 (r <= 54): Basık 3D Elipsoid Monolitik Dış Küre ve İç Savaş Arenası (KORUNAN ALAN)
+ * Aşama 2 (54 < r <= 85): Tuzaklı Katakomplar (3D bağlantılı labirent salonlar, lav kanalları, mayınlar, tuzaklar)
+ * Aşama 3 (85 < r <= 115): Kadim Kızıltaş Makineleri (3D endüstriyel galeriler, pistonlar, asılı lambalar)
+ * Aşama 4 (115 < r <= 165): Devasa Katedral Mağaraları (Gerçek 3D hacimler, organik kaya sütunları, doğal %6-10 kızıltaş damarları)
  */
 public class ProceduralRedstoneCaveSystem {
 
@@ -53,6 +53,7 @@ public class ProceduralRedstoneCaveSystem {
     public static final double R_STAGE3 = 115.0D;
     public static final double R_STAGE4 = 165.0D;
 
+    // Aşama 1 Elipsoid Parametreleri (KESİNLİKLE DEĞİŞTİRİLMEZ)
     public static final int ARENA_FLOOR_Y = -50;
     public static final int ELLIPSOID_CENTER_Y = -38;
     public static final double ELLIPSOID_OUTER_V = 22.0D; // Y: -60 ile -16 arası
@@ -87,11 +88,12 @@ public class ProceduralRedstoneCaveSystem {
 
                 if (distXZ > R_STAGE4 + 5.0D) continue;
 
-                double angle = Math.atan2(dz, dx);
-                double angleDeg = ((Math.toDegrees(angle) % 360.0D) + 360.0D) % 360.0D;
+                double angle = Math.atan2(dz, dz == 0 && dx == 0 ? 0 : dx);
+                if (angle < 0.0D) angle += 2.0D * Math.PI;
 
                 // =========================================================
                 // AŞAMA 1: 3D ELİPSOİD DIŞ KÜRE VE İÇ ARENA (r <= 54.0)
+                // (Mevcut tasarım, heykel, podyum ve mekanikler %100 korunur)
                 // =========================================================
                 if (distXZ <= R_STAGE1) {
                     long mod = generateStage1Column(level, pos, x, z, dx, dz, distXZ, angle, breachAngle, worldSeed);
@@ -101,22 +103,18 @@ public class ProceduralRedstoneCaveSystem {
                 }
 
                 // =========================================================
-                // AŞAMALAR 2, 3, 4: PROSEDÜREL GENİŞ MAĞARA AĞI (54.0 < r <= 165.0)
+                // AŞAMALAR 2, 3, 4: GERÇEK 3D ORGANİK MAĞARA HACİMLERİ (54.0 < r <= 165.0)
                 // =========================================================
                 int stage = getStage(distXZ);
-                boolean inCavern = isInsideCavern(x, z, dx, dz, distXZ, angle, stage, breachAngle, worldSeed);
-
-                if (inCavern) {
-                    long mod = generateCavernColumn(level, pos, x, z, distXZ, angleDeg, stage, worldSeed);
-                    if (stage == 2) s2 += mod;
-                    else if (stage == 3) s3 += mod;
-                    else s4 += mod;
-                    chunkModifiedCount += mod;
-                }
+                long mod = generate3DCaveColumn(level, pos, x, z, dx, dz, distXZ, angle, stage, breachAngle, worldSeed);
+                if (stage == 2) s2 += mod;
+                else if (stage == 3) s3 += mod;
+                else s4 += mod;
+                chunkModifiedCount += mod;
             }
         }
 
-        // Sayaçları güncelle
+        // Sayaçları güncelle ve logla
         if (chunkModifiedCount > 0) {
             TOTAL_CHUNKS_PROCESSED.incrementAndGet();
             TOTAL_BLOCKS_CARVED.addAndGet(chunkModifiedCount);
@@ -125,7 +123,7 @@ public class ProceduralRedstoneCaveSystem {
             STAGE3_BLOCKS.addAndGet(s3);
             STAGE4_BLOCKS.addAndGet(s4);
 
-            LOGGER.info("[CosmicArmor-WorldGen] Chunk [{}, {}]: Carved/Modified {} blocks (S1: {}, S2: {}, S3: {}, S4: {}) | Cumulative: {} chunks, {} blocks",
+            LOGGER.info("[CosmicArmor-WorldGen] Chunk [{}, {}]: Modified {} blocks (S1: {}, S2: {}, S3: {}, S4: {}) | Cumulative: {} chunks, {} blocks",
                     chunkPos.x, chunkPos.z, chunkModifiedCount, s1, s2, s3, s4,
                     TOTAL_CHUNKS_PROCESSED.get(), TOTAL_BLOCKS_CARVED.get());
         }
@@ -136,7 +134,8 @@ public class ProceduralRedstoneCaveSystem {
         }
     }
 
-    private static int getStage(double distXZ) {
+    public static int getStage(double distXZ) {
+        if (distXZ <= R_STAGE1) return 1;
         if (distXZ <= R_STAGE2) return 2;
         if (distXZ <= R_STAGE3) return 3;
         return 4;
@@ -147,7 +146,7 @@ public class ProceduralRedstoneCaveSystem {
     }
 
     // =========================================================================
-    // AŞAMA 1: GERÇEK 3D BASIK ELİPSOİD DIŞ VE İÇ KÜRE
+    // AŞAMA 1: GERÇEK 3D BASIK ELİPSOİD DIŞ VE İÇ KÜRE (KORUNAN BÖLGE)
     // =========================================================================
     private static long generateStage1Column(WorldGenLevel level, BlockPos.MutableBlockPos pos,
                                              int x, int z, int dx, int dz, double distXZ,
@@ -166,7 +165,7 @@ public class ProceduralRedstoneCaveSystem {
             double normInner = (dx * dx + dz * dz) / (ELLIPSOID_INNER_H * ELLIPSOID_INNER_H)
                     + (dy * dy) / (ELLIPSOID_INNER_V * ELLIPSOID_INNER_V);
 
-            // Dış elipsoidin dışı: bu sütun elipsoid dışında kalıyor
+            // Dış elipsoidin dışı
             if (normOuter > 1.0D) {
                 continue;
             }
@@ -207,7 +206,6 @@ public class ProceduralRedstoneCaveSystem {
             if (y == ARENA_FLOOR_Y) {
                 BlockState floorState = getArenaFloorBlock(distXZ, seed, x, z);
                 level.setBlock(pos, floorState, 2);
-                // Aydınlatmalı lamba altı güç bloğu
                 if (floorState.is(Blocks.REDSTONE_LAMP)) {
                     level.setBlock(pos.below(), Blocks.REDSTONE_BLOCK.defaultBlockState(), 2);
                 }
@@ -269,277 +267,326 @@ public class ProceduralRedstoneCaveSystem {
     }
 
     // =========================================================================
-    // AŞAMALAR 2, 3, 4: GERÇEK VE GENİŞLETİLMİŞ ORGANİK MAĞARA OYMA ALGORİTMASI
+    // AŞAMALAR 2, 3, 4: GERÇEK 3D COHERENT NOISE YOĞUNLUK VE OYMA SİSTEMİ
     // =========================================================================
-    private static boolean isInsideCavern(int x, int z, int dx, int dz, double distXZ, double angle, int stage, double breachAngle, long seed) {
-        double seedTerm = (seed & 0xFFFF) * 0.0013D;
 
-        // 1. Ana Giriş Omurgası (Giriş yarığından tüm aşamalar boyunca uzanan ana koridor)
-        double entranceWobble = Math.sin(distXZ * 0.05D + seedTerm * 10.0D) * 0.15D;
-        if (isNearAngle(angle, breachAngle + entranceWobble, 0.12D)) {
-            return true;
+    /**
+     * 3D Yoğunluk fonksiyonu:
+     * Değer < 0.0D olduğunda hacim boştur (CAVE AIR).
+     * Değer >= 0.0D olduğunda katı kayadır (SOLID ROCK).
+     */
+    public static double getCaveDensity(int x, int y, int z, int dx, int dz, double distXZ,
+                                         double angle, int stage, double breachAngle, long seed) {
+
+        // 1. DİKEY ZARF (Y in [-60, -18] aralığını kesin olarak korur)
+        double yCenter;
+        double yHalfHeight;
+        if (stage == 4) {
+            yCenter = -38.0D;
+            yHalfHeight = 16.0D; // Y: -54 ile -22 arası devasa katedral tavanı (26-32 blok)
+        } else if (stage == 3) {
+            yCenter = -42.0D;
+            yHalfHeight = 10.0D; // Y: -52 ile -32 arası geniş makine salonları (16-20 blok)
+        } else {
+            yCenter = -45.0D;
+            yHalfHeight = 6.0D;  // Y: -51 ile -39 arası katakomplar (9-12 blok)
         }
 
-        // 2. 8 Adet Ana Radyal Koridor (Her yöne açılan geniş caddeler)
-        int numBranches = 8;
-        double branchSpacing = (2.0D * Math.PI) / numBranches;
-        for (int i = 0; i < numBranches; i++) {
-            double baseBranchAngle = breachAngle + i * branchSpacing;
-            double wobble = Math.sin(distXZ * 0.04D + i * 1.3D + seedTerm) * 0.16D;
-            double targetAngle = baseBranchAngle + wobble;
+        double dyNorm = (y - yCenter) / yHalfHeight;
+        // 4. derece parabolik zarf: orta kısımda 0 kalır, sınırlara yaklaşınca dikleşip kapatır
+        double verticalPenalty = dyNorm * dyNorm * dyNorm * dyNorm;
 
-            double widthThreshold = (stage == 2) ? 0.11D : ((stage == 3) ? 0.16D : 0.22D);
-            if (isNearAngle(angle, targetAngle, widthThreshold)) {
-                return true;
+        // 2. 3D DOMAIN WARPED ORGANİK MAĞARA GÜRÜLTÜSÜ
+        double warpX = Cave3DNoise.noise3D(x * 0.035D, y * 0.035D, z * 0.035D, seed + 101L) * 5.0D;
+        double warpY = Cave3DNoise.noise3D(x * 0.035D, y * 0.035D, z * 0.035D, seed + 202L) * 3.5D;
+        double warpZ = Cave3DNoise.noise3D(x * 0.035D, y * 0.035D, z * 0.035D, seed + 303L) * 5.0D;
+
+        double qx = x + warpX;
+        double qy = y + warpY;
+        double qz = z + warpZ;
+
+        double cavernNoise;
+        if (stage == 4) {
+            double n1 = Cave3DNoise.noise3D(qx * 0.026D, qy * 0.036D, qz * 0.026D, seed + 404L);
+            double n2 = Cave3DNoise.noise3D(qx * 0.060D, qy * 0.070D, qz * 0.060D, seed + 505L) * 0.35D;
+            cavernNoise = n1 + n2 - 0.26D; // Geniş açık alan eğilimi
+        } else if (stage == 3) {
+            double n1 = Cave3DNoise.noise3D(qx * 0.038D, qy * 0.048D, qz * 0.038D, seed + 606L);
+            double n2 = Cave3DNoise.noise3D(qx * 0.075D, qy * 0.085D, qz * 0.075D, seed + 707L) * 0.30D;
+            cavernNoise = n1 + n2 - 0.16D;
+        } else {
+            double n1 = Cave3DNoise.noise3D(qx * 0.050D, qy * 0.065D, qz * 0.050D, seed + 808L);
+            double n2 = Cave3DNoise.noise3D(qx * 0.100D, qy * 0.110D, qz * 0.100D, seed + 909L) * 0.25D;
+            cavernNoise = n1 + n2 - 0.08D;
+        }
+
+        // 3. KESİNTİSİZ GEÇİŞ VE BAĞLANTI (Giriş Omurgası + Radyal Arterler + Halka Galeriler)
+        // Giriş yarığından başlayan ana omurga
+        double spineWobble = Math.sin(distXZ * 0.04D) * 0.12D;
+        double spineAngleDiff = angleDiff(angle, breachAngle + spineWobble);
+        double spineDistXZ = distXZ * Math.sin(spineAngleDiff);
+        double spineDistY = y - (-45.0D + Math.sin(distXZ * 0.05D) * 2.5D);
+        double spineDist = Math.sqrt(spineDistXZ * spineDistXZ + spineDistY * spineDistY * 1.5D);
+        double spineCarve = (spineDist < 5.2D) ? -(5.2D - spineDist) * 0.45D : 0.0D;
+
+        // 8 Adet Ana Radyal Koridor
+        double radialCarve = 0.0D;
+        int numRadial = 8;
+        double radialSpacing = (2.0D * Math.PI) / numRadial;
+        for (int i = 0; i < numRadial; i++) {
+            double bAngle = breachAngle + i * radialSpacing;
+            double wAngle = bAngle + Math.sin(distXZ * 0.035D + i * 1.1D) * 0.14D;
+            double aDiff = angleDiff(angle, wAngle);
+            double rDistXZ = distXZ * Math.sin(aDiff);
+            double rDistY = y - (yCenter + Math.sin(distXZ * 0.04D + i) * 2.0D);
+            double rDist = Math.sqrt(rDistXZ * rDistXZ + rDistY * rDistY * 1.4D);
+            double tunnelRadius = (stage == 4) ? 6.5D : ((stage == 3) ? 5.2D : 4.2D);
+            if (rDist < tunnelRadius) {
+                double c = -(tunnelRadius - rDist) * 0.35D;
+                if (c < radialCarve) radialCarve = c;
             }
         }
 
-        // 3. Eşmerkezli Dairesel Halka Koridorlar (Bütün radyal caddeleri ve odaları kesintisiz bağlar)
-        // Aşama 2 Halkaları: r in [62, 68] ve r in [76, 82]
-        if (stage == 2 && ((distXZ >= 62.0D && distXZ <= 68.0D) || (distXZ >= 76.0D && distXZ <= 82.0D))) {
-            return true;
+        // Eşmerkezli Dairesel Halka Tüneller
+        double ringCarve = 0.0D;
+        double[] ringRadii;
+        if (stage == 4) ringRadii = new double[]{126.0D, 144.0D, 160.0D};
+        else if (stage == 3) ringRadii = new double[]{94.0D, 108.0D};
+        else ringRadii = new double[]{64.0D, 77.0D};
+
+        for (double ringR : ringRadii) {
+            double dr = Math.abs(distXZ - ringR);
+            double ry = y - (yCenter + Math.sin(angle * 3.0D) * 2.0D);
+            double ringDist = Math.sqrt(dr * dr + ry * ry * 1.5D);
+            double ringRadius = (stage == 4) ? 5.8D : 4.2D;
+            if (ringDist < ringRadius) {
+                double c = -(ringRadius - ringDist) * 0.35D;
+                if (c < ringCarve) ringCarve = c;
+            }
         }
 
-        // Aşama 3 Halkaları: r in [92, 99] ve r in [106, 113]
-        if (stage == 3 && ((distXZ >= 92.0D && distXZ <= 99.0D) || (distXZ >= 106.0D && distXZ <= 113.0D))) {
-            return true;
-        }
-
-        // Aşama 4 Halkaları: r in [124, 134], r in [142, 151], r in [157, 164]
-        if (stage == 4 && ((distXZ >= 124.0D && distXZ <= 134.0D) ||
-                           (distXZ >= 142.0D && distXZ <= 151.0D) ||
-                           (distXZ >= 157.0D && distXZ <= 164.0D))) {
-            return true;
-        }
-
-        // 4. Katı Ölü Bölgeleri Ortadan Kaldıran Organik Hücresel Gürültü Oyması
+        // 4. DOĞAL ORGANİK KAYA SÜTUNLARI (KARE IZGARA YOK, DETERMINISTIK GÜRÜLTÜ TEPELERİ)
+        double pillarCarve = 0.0D;
         if (stage == 4) {
-            // Aşama 4: Devasa katedral mağaraları (~%75-80 alan oyuktur)
-            double cavernNoise = Math.sin(x * 0.042D + z * 0.038D + seedTerm) * Math.cos(x * 0.038D - z * 0.042D)
-                    + 0.38D * Math.sin(x * 0.082D + z * 0.076D);
-            if (cavernNoise > -0.22D) {
-                return true;
+            double pillarField = Cave3DNoise.noise2D(x * 0.048D, z * 0.048D, seed + 77777L);
+            if (pillarField > 0.62D) {
+                // Kum saati profili: tavan ve tabanda kalın, ortada dar
+                double dyC = (y - yCenter) / yHalfHeight;
+                double flare = 1.0D + 0.6D * (dyC * dyC);
+                double core = (pillarField - 0.62D) / 0.38D * flare;
+                core += Cave3DNoise.noise3D(x * 0.16D, y * 0.16D, z * 0.16D, seed + 88888L) * 0.14D;
+                if (core > 0.30D) {
+                    pillarCarve = 1.5D; // Katı kaya kütlesi ekle
+                }
             }
         } else if (stage == 3) {
-            // Aşama 3: Geniş atölye ve mekanik galeriler (~%65 alan oyuktur)
-            double workshopNoise = Math.sin(x * 0.055D - z * 0.050D + seedTerm) * Math.cos(x * 0.050D + z * 0.055D)
-                    + 0.32D * Math.sin(x * 0.095D + z * 0.090D);
-            if (workshopNoise > -0.12D) {
-                return true;
-            }
-        } else if (stage == 2) {
-            // Aşama 2: Birbirine bağlı labirent katakomp salonları (~%55 alan oyuktur)
-            double catacombNoise = Math.sin(x * 0.075D + z * 0.068D + seedTerm) * Math.cos(x * 0.068D - z * 0.075D)
-                    + 0.28D * Math.sin(x * 0.130D - z * 0.120D);
-            if (catacombNoise > -0.05D) {
-                return true;
+            // Aşama 3 Makine Kolonları: geniş mekanik odalarda organik aralıklı sütunlar
+            double pillarField = Cave3DNoise.noise2D(x * 0.065D, z * 0.065D, seed + 66666L);
+            if (pillarField > 0.68D) {
+                pillarCarve = 1.4D;
             }
         }
 
-        return false;
+        return verticalPenalty + cavernNoise + spineCarve + radialCarve + ringCarve + pillarCarve;
+    }
+
+    private static double angleDiff(double a1, double a2) {
+        double diff = Math.abs(a1 - a2);
+        while (diff > Math.PI) diff = Math.abs(diff - 2.0D * Math.PI);
+        return diff;
     }
 
     private static boolean isNearAngle(double a1, double a2, double threshold) {
-        double diff = Math.abs(a1 - a2);
-        while (diff > Math.PI) diff = Math.abs(diff - 2.0D * Math.PI);
-        return diff <= threshold;
+        return angleDiff(a1, a2) <= threshold;
     }
 
-    private static long generateCavernColumn(WorldGenLevel level, BlockPos.MutableBlockPos pos,
-                                             int x, int z, double distXZ, double angleDeg,
-                                             int stage, long seed) {
+    /**
+     * Tek bir (x, z) dikey sütunu boyunca 3D hacmi değerlendirir ve oyar.
+     */
+    private static long generate3DCaveColumn(WorldGenLevel level, BlockPos.MutableBlockPos pos,
+                                             int x, int z, int dx, int dz, double distXZ,
+                                             double angle, int stage, double breachAngle, long worldSeed) {
 
         long modified = 0;
-        int floorY;
-        int ceilY;
+        int minY = -62;
+        int maxY = -18;
+        int height = maxY - minY + 1; // 45 blok
 
-        if (stage == 4) {
-            // AŞAMA 4: 25-34 BLOK YÜKSEKLİKTE DEVASA KATEDRAL DOĞAL MAĞARALARI
-            floorY = -54 + (int) Math.round(Math.sin(x * 0.04D + z * 0.04D) * 2.5D);
-            ceilY = -22 + (int) Math.round(Math.cos(x * 0.03D - z * 0.03D) * 3.5D);
+        boolean[] isAir = new boolean[height];
 
-            // Aşama 4 Doğal Kaya Sütunları: Devasa kolonlar
-            int pillarHash = (x * 73 + z * 37 + (int)(seed & 0xFFFF)) & 0x7FFFFFFF;
-            if (pillarHash % 67 == 0 || (Math.abs(x % 24) <= 1 && Math.abs(z % 24) <= 1 && pillarHash % 2 == 0)) {
-                return buildNaturalRockPillar(level, pos, x, z, floorY, ceilY);
-            }
-        } else if (stage == 3) {
-            // AŞAMA 3: 15-19 BLOK YÜKSEKLİKTE MAKİNE GALERİLERİ
-            floorY = -51 + (int) Math.round(Math.sin(x * 0.06D + z * 0.06D) * 1.5D);
-            ceilY = -34 + (int) Math.round(Math.cos(x * 0.05D - z * 0.05D) * 2.0D);
-
-            // Aşama 3 Destek Kolonları
-            if (Math.abs(x % 16) == 0 && Math.abs(z % 16) == 0) {
-                return buildMachineSupportPillar(level, pos, x, z, floorY, ceilY);
-            }
-        } else {
-            // AŞAMA 2: 9-11 BLOK YÜKSEKLİKTE TUZAKLI KATAKOMPLAR
-            floorY = -50 + (int) Math.round(Math.sin(x * 0.08D + z * 0.08D) * 1.0D);
-            ceilY = -40 + (int) Math.round(Math.cos(x * 0.07D - z * 0.07D) * 1.2D);
+        // 1. ADIM: 3D Yoğunluk Değerlendirmesi
+        for (int y = minY; y <= maxY; y++) {
+            double density = getCaveDensity(x, y, z, dx, dz, distXZ, angle, stage, breachAngle, worldSeed);
+            isAir[y - minY] = (density < 0.0D);
         }
 
-        floorY = Math.max(-62, floorY);
-        ceilY = Math.min(-18, ceilY);
-        if (floorY >= ceilY) return 0;
-
-        int hash = (x * 37 + z * 29 + (int)(seed & 0xFFFF)) & 0x7FFFFFFF;
-
-        for (int y = floorY - 1; y <= ceilY; y++) {
+        // 2. ADIM: Blokları Yerleştir ve Yüzeyleri İşle
+        for (int y = minY; y <= maxY; y++) {
+            int idx = y - minY;
             pos.set(x, y, z);
 
-            // 1. ZEMİN KAPLAMASI (y == floorY - 1)
-            if (y == floorY - 1) {
-                BlockState fl;
-                if (stage == 4) {
-                    if (hash % 3 == 0) fl = Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState();
-                    else if (hash % 11 == 0) fl = Blocks.REDSTONE_BLOCK.defaultBlockState();
-                    else fl = Blocks.DEEPSLATE.defaultBlockState();
-                } else if (stage == 3) {
-                    if (hash % 5 == 0) fl = Blocks.DEEPSLATE_TILES.defaultBlockState();
-                    else if (hash % 3 == 0) fl = Blocks.DEEPSLATE_BRICKS.defaultBlockState();
-                    else fl = Blocks.POLISHED_DEEPSLATE.defaultBlockState();
-                } else {
-                    if (hash % 4 == 0) fl = Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState();
-                    else fl = Blocks.DEEPSLATE_TILES.defaultBlockState();
-                }
-                level.setBlock(pos, fl, 2);
-                modified++;
-            }
-            // 2. MAĞARA İÇİ HAVA VE DEKORASYONLAR
-            else if (y >= floorY && y < ceilY) {
+            if (isAir[idx]) {
+                // Mağara Boşluğu: Havayı temizle
                 level.setBlock(pos, Blocks.AIR.defaultBlockState(), 2);
                 modified++;
+            } else {
+                // Katı Kaya: Yüzey kontrolü
+                boolean isFloor = (idx + 1 < height) && isAir[idx + 1];  // Üstü hava: Mağara tabanı
+                boolean isCeiling = (idx - 1 >= 0) && isAir[idx - 1];    // Altı hava: Mağara tavanı
 
-                if (y == floorY) {
-                    placeDecorations(level, pos, x, z, floorY, stage, distXZ, angleDeg, seed);
+                if (isFloor || isCeiling) {
+                    BlockState surfaceState = getCaveSurfaceBlock(x, y, z, stage, isFloor, isCeiling, worldSeed);
+                    level.setBlock(pos, surfaceState, 2);
+                    modified++;
+
+                    // Dekorasyon ve Tuzak/Makine Entegrasyonu (Taban seviyesinde)
+                    if (isFloor) {
+                        placeSurfaceFeature(level, pos, x, y, z, stage, distXZ, worldSeed);
+                    }
                 }
-            }
-            // 3. TAVAN (y == ceilY)
-            else if (y == ceilY) {
-                BlockState roof;
-                if (stage == 4 && hash % 3 == 0) {
-                    roof = Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState();
-                } else if (stage == 3 && hash % 7 == 0) {
-                    roof = Blocks.REDSTONE_LAMP.defaultBlockState();
-                    level.setBlock(pos.above(), Blocks.REDSTONE_BLOCK.defaultBlockState(), 2);
-                } else if (stage == 2 && hash % 5 == 0) {
-                    roof = Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState();
-                } else {
-                    roof = Blocks.COBBLED_DEEPSLATE.defaultBlockState();
-                }
-                level.setBlock(pos, roof, 2);
-                modified++;
             }
         }
 
         return modified;
     }
 
-    private static long buildNaturalRockPillar(WorldGenLevel level, BlockPos.MutableBlockPos pos, int x, int z, int floorY, int ceilY) {
-        long count = 0;
-        for (int y = floorY - 1; y <= ceilY; y++) {
-            pos.set(x, y, z);
-            int h = (x * 19 + y * 13 + z * 7) & 0x7FFFFFFF;
-            BlockState pillar = (h % 3 == 0)
-                    ? Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState()
-                    : Blocks.DEEPSLATE.defaultBlockState();
-            level.setBlock(pos, pillar, 2);
-            count++;
-        }
-        return count;
-    }
+    /**
+     * Doğal Kaya ve %6-10 Kızıltaş Damar Paleti.
+     * Modulo çapraz desenleri kesinlikle kullanılmaz; sürekli 3D gürültü kümeleri kullanılır.
+     */
+    public static BlockState getCaveSurfaceBlock(int x, int y, int z, int stage, boolean isFloor, boolean isCeiling, long seed) {
+        // 3D Kızıltaş Damar Alanı: sürekli 3D cepler (Damarlar 3-6 blok genişlikte uzanır)
+        double oreNoise = Cave3DNoise.noise3D(x * 0.15D, y * 0.15D, z * 0.15D, seed + 424242L);
 
-    private static long buildMachineSupportPillar(WorldGenLevel level, BlockPos.MutableBlockPos pos, int x, int z, int floorY, int ceilY) {
-        long count = 0;
-        for (int y = floorY - 1; y <= ceilY; y++) {
-            pos.set(x, y, z);
-            BlockState pillar = (y == floorY + 1 || y == ceilY - 1)
-                    ? Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState()
-                    : Blocks.CHISELED_DEEPSLATE.defaultBlockState();
-            level.setBlock(pos, pillar, 2);
-            count++;
-        }
-        return count;
-    }
+        if (stage == 4) {
+            // AŞAMA 4: Doğal Katedral Mağaraları
+            // oreNoise > 0.68: %0.5 nadir kızıltaş bloğu çekirdeği
+            // oreNoise > 0.40: %7.8 doğal bağlantılı derin cevher damarları (Hedef: %6-10)
+            if (oreNoise > 0.68D) {
+                return Blocks.REDSTONE_BLOCK.defaultBlockState();
+            } else if (oreNoise > 0.40D) {
+                return Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState();
+            }
 
-    private static void placeDecorations(WorldGenLevel level, BlockPos pos, int x, int z,
-                                         int floorY, int stage, double distXZ, double angleDeg, long seed) {
-        int hash = (x * 47 + z * 31 + (int)(seed & 0xFFF)) & 0x7FFFFFFF;
-
-        if (stage == 2) {
-            // Lav Çukurları
-            if (distXZ >= 70.0D && distXZ <= 72.0D && (hash % 11 == 0)) {
-                level.setBlock(pos, Blocks.LAVA.defaultBlockState(), 2);
-                level.setBlock(pos.below(), Blocks.LAVA.defaultBlockState(), 2);
-                return;
-            }
-            // Mayınlar ve TNT
-            if (distXZ >= 76.0D && distXZ <= 79.0D && (hash % 13 == 0)) {
-                level.setBlock(pos.below(2), Blocks.TNT.defaultBlockState(), 2);
-                level.setBlock(pos.below(1), Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState(), 2);
-                level.setBlock(pos, Blocks.STONE_PRESSURE_PLATE.defaultBlockState(), 2);
-                return;
-            }
-            if (hash % 29 == 0) {
-                level.setBlock(pos, ModBlocks.REDSTONE_LANDMINE.get().defaultBlockState(), 2);
-                return;
-            }
-            // Tripwire ve Hasarlı Ok Atan Dispenserlar
-            if (distXZ >= 62.0D && distXZ <= 65.0D && (hash % 17 == 0)) {
-                level.setBlock(pos, Blocks.TRIPWIRE.defaultBlockState(), 2);
-                BlockPos wallPos = pos.east(2);
-                level.setBlock(wallPos, Blocks.TRIPWIRE_HOOK.defaultBlockState().setValue(TripWireHookBlock.FACING, Direction.WEST), 2);
-                BlockPos dispPos = wallPos.east();
-                level.setBlock(dispPos, Blocks.DISPENSER.defaultBlockState().setValue(DispenserBlock.FACING, Direction.WEST), 2);
-
-                BlockEntity be = level.getBlockEntity(dispPos);
-                if (be instanceof DispenserBlockEntity dispenser) {
-                    ItemStack tippedArrow = new ItemStack(Items.TIPPED_ARROW, 8);
-                    PotionUtils.setPotion(tippedArrow, Potions.HARMING);
-                    dispenser.setItem(0, tippedArrow);
-                }
-                return;
-            }
-            // Spawnerlar
-            if (distXZ >= 80.0D && distXZ <= 84.0D && (hash % 29 == 0)) {
-                level.setBlock(pos, Blocks.SPAWNER.defaultBlockState(), 2);
-                BlockEntity be = level.getBlockEntity(pos);
-                if (be instanceof SpawnerBlockEntity spawner) {
-                    spawner.setEntityId((hash % 2 == 0) ? EntityType.SKELETON : EntityType.ZOMBIE, level.getRandom());
-                }
-                return;
-            }
-            if (hash % 5 == 0 && level.getBlockState(pos).isAir() && level.getBlockState(pos.below()).isSolid()) {
-                level.setBlock(pos, Blocks.REDSTONE_WIRE.defaultBlockState(), 2);
+            // Doğal Kaya Çeşitleri: Geniş jeolojik bölgeler (Dama tahtası yok)
+            double rockNoise = Cave3DNoise.noise3D(x * 0.032D, y * 0.032D, z * 0.032D, seed + 888888L);
+            if (rockNoise > 0.36D) {
+                return Blocks.TUFF.defaultBlockState();
+            } else if (rockNoise < -0.36D) {
+                return Blocks.COBBLED_DEEPSLATE.defaultBlockState();
+            } else {
+                return Blocks.DEEPSLATE.defaultBlockState();
             }
         } else if (stage == 3) {
-            // Çalışan Piston Düzenekleri
-            if (distXZ >= 92.0D && distXZ <= 95.0D && (hash % 11 == 0)) {
-                level.setBlock(pos, Blocks.PISTON.defaultBlockState().setValue(PistonBaseBlock.FACING, Direction.UP), 2);
-                level.setBlock(pos.below(), Blocks.REDSTONE_BLOCK.defaultBlockState(), 2);
-                return;
+            // AŞAMA 3: Kadim Makineler ve Atölyeler
+            if (oreNoise > 0.62D) {
+                return Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState(); // %4.2 cevher
             }
-            // Asılı Lambalar ve Kızıltaş Fenerleri
-            if (distXZ >= 102.0D && distXZ <= 106.0D && (hash % 13 == 0)) {
-                level.setBlock(pos, Blocks.REDSTONE_WIRE.defaultBlockState(), 2);
-                level.setBlock(pos.above(1), Blocks.REDSTONE_LAMP.defaultBlockState(), 2);
-                level.setBlock(pos.above(2), Blocks.REDSTONE_TORCH.defaultBlockState(), 2);
-                return;
+
+            // Makine alanlarında mimari geçişler
+            double ruinNoise = Cave3DNoise.noise3D(x * 0.045D, y * 0.045D, z * 0.045D, seed + 333333L);
+            if (ruinNoise > 0.35D) {
+                return Blocks.DEEPSLATE_BRICKS.defaultBlockState();
+            } else if (ruinNoise > 0.15D) {
+                return Blocks.DEEPSLATE_TILES.defaultBlockState();
+            } else {
+                return Blocks.POLISHED_DEEPSLATE.defaultBlockState();
             }
-            if (hash % 19 == 0) {
-                level.setBlock(pos, Blocks.CHAIN.defaultBlockState(), 2);
-                level.setBlock(pos.above(1), Blocks.LANTERN.defaultBlockState(), 2);
+        } else {
+            // AŞAMA 2: Tuzaklı Katakomplar
+            if (oreNoise > 0.65D) {
+                return Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState(); // %3.5 cevher
             }
-            if (hash % 6 == 0 && level.getBlockState(pos).isAir() && level.getBlockState(pos.below()).isSolid()) {
-                level.setBlock(pos, Blocks.REDSTONE_WIRE.defaultBlockState(), 2);
-            }
-        } else if (stage == 4) {
-            if (hash % 5 == 0 && level.getBlockState(pos.below()).isSolid()) {
-                level.setBlock(pos.below(), Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState(), 2);
-            } else if (hash % 17 == 0) {
-                level.setBlock(pos, Blocks.REDSTONE_WIRE.defaultBlockState(), 2);
+
+            double catacombNoise = Cave3DNoise.noise3D(x * 0.055D, y * 0.055D, z * 0.055D, seed + 222222L);
+            if (catacombNoise > 0.28D) {
+                return Blocks.DEEPSLATE_BRICKS.defaultBlockState();
+            } else if (catacombNoise < -0.28D) {
+                return Blocks.CRACKED_DEEPSLATE_BRICKS.defaultBlockState();
+            } else {
+                return Blocks.DEEPSLATE_TILES.defaultBlockState();
             }
         }
+    }
+
+    /**
+     * Tuzaklar, makineler ve özel özellikler (Kesinlikle doğal mağarada rastgele kızıltaş tozu konulmaz).
+     */
+    private static void placeSurfaceFeature(WorldGenLevel level, BlockPos.MutableBlockPos floorPos,
+                                            int x, int y, int z, int stage, double distXZ, long seed) {
+
+        BlockPos airPos = floorPos.above(); // Yürünebilir boşluk
+
+        if (stage == 2) {
+            // AŞAMA 2: TUZAKLAR VE KATAKOMP MEKANİZMALARI
+            double featureNoise = Cave3DNoise.noise2D(x * 0.16D, z * 0.16D, seed + 55555L);
+
+            // 1. Kızıltaş Mayını (Yürünebilir zeminde)
+            if (featureNoise > 0.78D && featureNoise <= 0.83D) {
+                level.setBlock(airPos, ModBlocks.REDSTONE_LANDMINE.get().defaultBlockState(), 2);
+                return;
+            }
+
+            // 2. Basınç Plakası ve TNT Tuzağı
+            if (featureNoise > 0.83D && featureNoise <= 0.88D) {
+                level.setBlock(floorPos.below(), Blocks.TNT.defaultBlockState(), 2);
+                level.setBlock(floorPos, Blocks.DEEPSLATE_TILES.defaultBlockState(), 2);
+                level.setBlock(airPos, Blocks.STONE_PRESSURE_PLATE.defaultBlockState(), 2);
+                return;
+            }
+
+            // 3. Tripwire ve Fırlatıcı Tuzağı
+            if (featureNoise > 0.88D && featureNoise <= 0.92D) {
+                level.setBlock(airPos, Blocks.TRIPWIRE.defaultBlockState(), 2);
+                BlockPos wallPos = airPos.east(2);
+                if (level.getBlockState(wallPos).isSolid()) {
+                    level.setBlock(wallPos, Blocks.TRIPWIRE_HOOK.defaultBlockState().setValue(TripWireHookBlock.FACING, Direction.WEST), 2);
+                    BlockPos dispPos = wallPos.east();
+                    level.setBlock(dispPos, Blocks.DISPENSER.defaultBlockState().setValue(DispenserBlock.FACING, Direction.WEST), 2);
+                    BlockEntity be = level.getBlockEntity(dispPos);
+                    if (be instanceof DispenserBlockEntity dispenser) {
+                        ItemStack tippedArrow = new ItemStack(Items.TIPPED_ARROW, 8);
+                        PotionUtils.setPotion(tippedArrow, Potions.HARMING);
+                        dispenser.setItem(0, tippedArrow);
+                    }
+                }
+                return;
+            }
+
+            // 4. Canavar Üreteci (Spawner)
+            if (featureNoise > 0.92D) {
+                level.setBlock(airPos, Blocks.SPAWNER.defaultBlockState(), 2);
+                BlockEntity be = level.getBlockEntity(airPos);
+                if (be instanceof SpawnerBlockEntity spawner) {
+                    spawner.setEntityId((featureNoise > 0.96D) ? EntityType.SKELETON : EntityType.ZOMBIE, level.getRandom());
+                }
+                return;
+            }
+
+            // 5. Lav Çukuru Kanalları
+            if (featureNoise < -0.82D) {
+                level.setBlock(floorPos, Blocks.LAVA.defaultBlockState(), 2);
+                level.setBlock(floorPos.below(), Blocks.LAVA.defaultBlockState(), 2);
+            }
+        } else if (stage == 3) {
+            // AŞAMA 3: KADİM KIZILTAŞ MAKİNELERİ VE ATÖLYELER
+            double machineNoise = Cave3DNoise.noise2D(x * 0.14D, z * 0.14D, seed + 44444L);
+
+            // 1. Çalışan Piston Düzeneği
+            if (machineNoise > 0.82D && machineNoise <= 0.88D) {
+                level.setBlock(airPos, Blocks.PISTON.defaultBlockState().setValue(PistonBaseBlock.FACING, Direction.UP), 2);
+                level.setBlock(floorPos, Blocks.REDSTONE_BLOCK.defaultBlockState(), 2);
+                return;
+            }
+
+            // 2. Tavan Aydınlatması (Asılı fener veya lamba)
+            if (machineNoise > 0.88D) {
+                level.setBlock(airPos, Blocks.REDSTONE_WIRE.defaultBlockState(), 2);
+                level.setBlock(airPos.above(2), Blocks.REDSTONE_LAMP.defaultBlockState(), 2);
+                level.setBlock(airPos.above(3), Blocks.REDSTONE_BLOCK.defaultBlockState(), 2);
+            }
+        }
+        // AŞAMA 4: DOĞAL MAĞARA - KESİNLİKLE RASTGELE REDSTONE_WIRE YERLEŞTİRİLMEZ!
     }
 
     private static void spawnStatueAndRegister(WorldGenLevel level, BlockPos center) {
