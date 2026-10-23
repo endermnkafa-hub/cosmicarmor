@@ -15,8 +15,10 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -185,23 +187,16 @@ public class ArenaManager extends SavedData {
     }
 
     public BlockPos initializeArenaAt(ServerLevel level, BlockPos origin) {
-        SchematicLoader.SchematicData data = getOrLoadSchematic();
-        if (data == null) return origin;
-
-        BlockPos statueCenter = SchematicLoader.paste(level, origin, data);
-
-        // Zindan koridorlarını ve 4 aşamalı prosedürel mağara ağını inşa et
-        net.minecraft.world.level.levelgen.structure.BoundingBox fullBox = new net.minecraft.world.level.levelgen.structure.BoundingBox(
-                origin.getX() - 150, origin.getY() - 15, origin.getZ() - 150,
-                origin.getX() + data.width + 150, origin.getY() + 105, origin.getZ() + data.length + 150
+        BlockPos center = origin.offset(54, 0, 54);
+        BoundingBox fullBox = new BoundingBox(
+                center.getX() - 170, -64, center.getZ() - 170,
+                center.getX() + 170, -16, center.getZ() + 170
         );
-        RedstoneDungeonGenerator.generateSurroundingLayers(level, fullBox, origin, data);
+        ProceduralRedstoneCaveSystem.generate(level, fullBox, new ChunkPos(center), center, level.getSeed());
 
-        // Doğal su ve sıvıları küre içinden temizle
-        cleanLiquidsInSphere(level, statueCenter);
+        cleanLiquidsInSphere(level, center);
 
-        // Merkeze Kırıktaş Heykeli Spawn Et
-        BlockPos statuePos = spawnStatueAtCenter(level, statueCenter);
+        BlockPos statuePos = spawnStatueAtCenter(level, new BlockPos(center.getX(), -48, center.getZ()));
 
         ArenaInstance inst = new ArenaInstance(statuePos, origin);
         this.arenas.put(statuePos, inst);
@@ -289,14 +284,8 @@ public class ArenaManager extends SavedData {
             arena.activeBossUUID = null;
         }
 
-        // Arenadaki hasarlı blokları orijinal şablondan onar
-        SchematicLoader.SchematicData data = getOrLoadSchematic();
-        if (data != null && !arena.schematicOrigin.equals(BlockPos.ZERO)) {
-            SchematicLoader.paste(level, arena.schematicOrigin, data);
-        }
-
-        // İç ve dış küre içindeki doğal su akıntılarını/sızmaları temizle
-        cleanLiquidsInSphere(level, arena.center);
+        // Arenadaki hasarlı blokları koddan prosedürel olarak onar
+        ProceduralRedstoneCaveSystem.repairArena(level, arena.center);
 
         // Heykeli ortaya full canla yeniden dik
         spawnStatueAtCenter(level, arena.center);

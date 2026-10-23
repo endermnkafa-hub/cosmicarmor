@@ -99,34 +99,57 @@ public class RedstoneDepthsBiomeSource extends BiomeSource {
         return this.delegate.getNoiseBiome(quartX, quartY, quartZ, sampler);
     }
 
+    public static final int PLACEMENT_SPACING = 32;
+    public static final int PLACEMENT_SEPARATION = 8;
+    public static final int PLACEMENT_SALT = 1642893;
+
     /**
-     * Deterministik, dünya tohumuna bağlı, ~150-250 blok genişliğinde nadir yeraltı cepleri.
-     * Dünyanın derin katmanında yaklaşık %2.5-3.0 oranında Kızıltaş Derinlikleri oluşturur.
+     * Her dünyada tam olarak 1 adet Kızıltaş Derinlikleri merkezi deterministik olarak belirlenir.
+     * Bu merkez, StructurePlacement'in (0, 0) grid bölgesinde seçeceği aday chunk ile birebir aynıdır.
      */
-    public boolean isRedstoneDepthsZone(int quartX, int quartZ) {
-        double scale = 0.0075D; // ~150-200 blokluk biyom yamaları
-        double nx = quartX * scale;
-        double nz = quartZ * scale;
+    public static net.minecraft.world.level.ChunkPos getUniqueCenterChunk(long seed) {
+        net.minecraft.world.level.levelgen.WorldgenRandom r = new net.minecraft.world.level.levelgen.WorldgenRandom(
+                new net.minecraft.world.level.levelgen.LegacyRandomSource(0L)
+        );
+        r.setLargeFeatureWithSalt(seed, 0, 0, PLACEMENT_SALT);
+        int k = PLACEMENT_SPACING - PLACEMENT_SEPARATION; // 24
+        int chunkX = r.nextInt(k);
+        int chunkZ = r.nextInt(k);
+        return new net.minecraft.world.level.ChunkPos(chunkX, chunkZ);
+    }
 
-        double seedShiftX = ((this.worldSeed >> 16) & 0xFFFF) * 0.1D;
-        double seedShiftZ = ((this.worldSeed) & 0xFFFF) * 0.1D;
-
-        double v1 = Math.sin(nx + seedShiftX) * Math.cos(nz + seedShiftZ);
-        double v2 = Math.sin((nx * 1.7D) - (nz * 1.3D) + 2.1D) * 0.5D;
-        double v3 = Math.cos((nx * 0.7D) + (nz * 2.1D) - 1.4D) * 0.3D;
-
-        double composite = (v1 + v2 + v3) / 1.8D;
-
-        return composite > 0.68D;
+    public static BlockPos getUniqueCenterPos(long seed) {
+        net.minecraft.world.level.ChunkPos chunk = getUniqueCenterChunk(seed);
+        return new BlockPos(chunk.getMiddleBlockX(), -42, chunk.getMiddleBlockZ());
     }
 
     /**
-     * /locate biome komutu için 3D arama:
-     * LocateCommand dikeyde 64 blok aralıklarla örnekleme yaptığından,
-     * oyuncu dağda veya yüksekte olduğunda 48 blokluk derinlik tabakası atlanabilir.
-     * Bu metod, hedef biyomumuz arandığında dikey aramayı tam olarak biyomun var olduğu
-     * Y = -42 (QuartPos: -11) seviyesinde gerçekleştirir.
-     * Biyom asla yüzeye taşınmaz, doğrudan mağaranın gerçek koordinatını döner.
+     * Biyom bölgesi kontrolü:
+     * Dünya başına tek bir merkez etrafında, en az 160 blok yarıçaplı (320x320 alan)
+     * organik dalgalı kenarlara sahip geniş bölgeyi tanımlar.
+     */
+    public boolean isRedstoneDepthsZone(int quartX, int quartZ) {
+        BlockPos center = getUniqueCenterPos(this.worldSeed);
+        int centerQuartX = QuartPos.fromBlock(center.getX());
+        int centerQuartZ = QuartPos.fromBlock(center.getZ());
+
+        double dx = (quartX - centerQuartX) * 4.0D;
+        double dz = (quartZ - centerQuartZ) * 4.0D;
+        double distSq = dx * dx + dz * dz;
+
+        // Asgari 160 blok yarıçap garantisi (167 - 183 blok arası organik dalgalanma)
+        double angle = Math.atan2(dz, dx);
+        double seedShift = ((this.worldSeed & 0xFFFF) * 0.001D);
+        double wobble = Math.sin(3.0D * angle + seedShift) * 5.0D + Math.cos(5.0D * angle - seedShift) * 3.0D;
+        double radius = 175.0D + wobble; // 167.0D ile 183.0D arasında (kesinlikle >= 160.0D)
+
+        return distSq <= (radius * radius);
+    }
+
+    /**
+     * /locate biome komutu için doğrudan gerçek biyom merkezini döner:
+     * Biyom dikeyde yalnızca Y in [-64, -16] aralığında yer aldığından,
+     * merkez koordinat Y=-42 seviyesinde hedeflenir.
      */
     @Override
     public Pair<BlockPos, Holder<Biome>> findClosestBiome3d(
@@ -134,40 +157,8 @@ public class RedstoneDepthsBiomeSource extends BiomeSource {
             Predicate<Holder<Biome>> predicate, Climate.Sampler sampler, LevelReader levelReader) {
 
         if (predicate.test(this.redstoneDepths)) {
-            int step = Math.max(16, horizontalStep);
-            int maxR = radius > 0 ? radius : 6400;
-            int originX = origin.getX();
-            int originZ = origin.getZ();
-
-            int maxSteps = maxR / step;
-            int x = 0;
-            int z = 0;
-            int dx = 0;
-            int dz = -1;
-
-            for (int i = 0; i < (maxSteps * 2 + 1) * (maxSteps * 2 + 1); i++) {
-                if ((-maxSteps <= x) && (x <= maxSteps) && (-maxSteps <= z) && (z <= maxSteps)) {
-                    int worldX = originX + x * step;
-                    int worldZ = originZ + z * step;
-                    int qX = QuartPos.fromBlock(worldX);
-                    int qZ = QuartPos.fromBlock(worldZ);
-
-                    if (isRedstoneDepthsZone(qX, qZ)) {
-                        BlockPos foundPos = new BlockPos(worldX, -42, worldZ);
-                        return Pair.of(foundPos, this.redstoneDepths);
-                    }
-                }
-
-                if (x == z || (x < 0 && x == -z) || (x > 0 && x == 1 - z)) {
-                    int temp = dx;
-                    dx = -dz;
-                    dz = temp;
-                }
-                x += dx;
-                z += dz;
-            }
-
-            return null;
+            BlockPos center = getUniqueCenterPos(this.worldSeed);
+            return Pair.of(center, this.redstoneDepths);
         }
 
         return this.delegate.findClosestBiome3d(origin, radius, horizontalStep, verticalStep, predicate, sampler, levelReader);
